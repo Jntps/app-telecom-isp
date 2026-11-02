@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
-import '../repositories/auth_repository.dart';
+import '../data/repositories/auth_repository.dart';
 
 class AuthViewModel extends ChangeNotifier {
   final AuthRepository _authRepository;
@@ -33,7 +33,10 @@ class AuthViewModel extends ChangeNotifier {
       final hashedSenha = _gerarHmacSha256(password);
 
       // 2. Envia para a API através do Repository
-      await _authRepository.login(email, hashedSenha);
+      final sucesso = await _authRepository.login(email, hashedSenha);
+      if (!sucesso) {
+        throw Exception('Não foi possível autenticar com esses dados.');
+      }
       
       isLoading = false;
       notifyListeners();

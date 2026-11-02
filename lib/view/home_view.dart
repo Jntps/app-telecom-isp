@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../data/models/chamado_model.dart';
+import '../data/repositories/auth_repository.dart';
 import '../viewModel/chamados_viewmodel.dart';
-import '../repositories/auth_repository.dart';
 
 class HomeView extends StatefulWidget {
-  const HomeView({Key? key}) : super(key: key);
+  const HomeView({super.key});
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -15,85 +17,142 @@ class _HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ChamadosViewModel>(context, listen: false).carregarChamados();
+      if (mounted) context.read<ChamadosViewModel>().carregarChamados();
     });
   }
 
-  void _fazerLogout() async {
-    await AuthRepository().logout();
+  Future<void> _sair() async {
+    await context.read<AuthRepository>().logout();
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+  }
+
+  Future<void> _abrirAtendimento(ChamadoModel chamado) async {
+    final concluido = await Navigator.pushNamed(
+      context, '/atendimento', arguments: chamado,
+    );
+    if (mounted && concluido == true) {
+      await context.read<ChamadosViewModel>().carregarChamados();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Atendimento salvo no aparelho. Sincronize quando houver internet.'),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<ChamadosViewModel>();
-
+    final vm = context.watch<ChamadosViewModel>();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ordens de Serviço'),
-        backgroundColor: Colors.blueAccent,
         actions: [
           IconButton(
+            tooltip: 'Histórico e sincronização',
+            icon: const Icon(Icons.history),
+            onPressed: () => Navigator.pushNamed(context, '/historico'),
+          ),
+          IconButton(
+            tooltip: 'Sair',
             icon: const Icon(Icons.logout),
-            onPressed: _fazerLogout,
-            tooltip: 'Terminar Sessão',
+            onPressed: _sair,
           ),
         ],
       ),
-      body: _buildBody(viewModel),
+      body: Column(
+        children: [
+          if (vm.usandoOffline)
+            const MaterialBanner(
+              content: Text('Modo offline: mostrando chamados salvos no aparelho.'),
+              leading: Icon(Icons.cloud_off),
+              actions: [SizedBox.shrink()],
+            ),
+          if (vm.atualizando) const LinearProgressIndicator(minHeight: 2),
+          Expanded(child: _conteudo(vm)),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => viewModel.carregarChamados(),
-        backgroundColor: Colors.blueAccent,
+        tooltip: 'Atualizar chamados',
+        onPressed: vm.atualizando ? null : vm.carregarChamados,
         child: const Icon(Icons.refresh),
       ),
     );
   }
 
-  Widget _buildBody(ChamadosViewModel viewModel) {
-    if (viewModel.isLoading) {
+  Widget _conteudo(ChamadosViewModel vm) {
+    if (vm.isLoading && vm.chamados.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-
-    if (viewModel.errorMessage != null) {
+    if (vm.errorMessage != null && vm.chamados.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            viewModel.errorMessage!,
-            style: const TextStyle(color: Colors.red, fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
+          padding: const EdgeInsets.all(24),
+          child: Text(vm.errorMessage!, textAlign: TextAlign.center),
         ),
       );
     }
-
-    if (viewModel.chamados.isEmpty) {
-      return const Center(
-        child: Text('Nenhuma ordem de serviço encontrada.', style: TextStyle(fontSize: 16)),
-      );
+    if (vm.chamados.isEmpty) {
+      return const Center(child: Text('Nenhum chamado ativo encontrado.'));
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: viewModel.chamados.length,
-      itemBuilder: (context, index) {
-        final chamado = viewModel.chamados[index];
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Colors.blueAccent,
-              child: Icon(Icons.build, color: Colors.white),
+    return RefreshIndicator(
+      onRefresh: vm.carregarChamados,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: vm.chamados.length,
+        itemBuilder: (context, index) {
+          final chamado = vm.chamados[index];
+          final distancia = vm.distancias[chamado.id];
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: InkWell(
+              onTap: () => _abrirAtendimento(chamado),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            chamado.nome,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        if (distancia != null)
+                          Chip(label: Text('${distancia.toStringAsFixed(1)} km'))
+                        else
+                          const Chip(label: Text('GPS indisponível')),
+                      ],
+                    ),
+                    Text('Código: ${chamado.codigoCliente}'),
+                    Text('Categoria: ${chamado.categoria}'),
+                    const SizedBox(height: 8),
+                    Text(chamado.resumo),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      const Icon(Icons.place, size: 18),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(chamado.enderecoCompleto)),
+                    ]),
+                    const SizedBox(height: 8),
+                    const Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        'Abrir atendimento',
+                        style: TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            title: Text('Chamado #${chamado.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Status: ${chamado.status}'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:projeto_telecom/view/detalhes_view.dart';
 
 // Imports de Autenticação
 import 'repositories/auth_repository.dart';
@@ -48,7 +49,8 @@ class MyApp extends StatelessWidget {
       routes: {
         '/splash': (context) => const SplashView(),
         '/login': (context) => const LoginView(),
-        '/home': (context) => const HomeView(), // Rota ligada à nova HomeView
+        '/home': (context) => const HomeView(),
+        '/detalhes': (context) => const DetalhesView(), // <-- ADICIONA ESTA LINHA
       },
     );
   }

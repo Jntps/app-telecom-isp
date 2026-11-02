@@ -1,43 +1,68 @@
 import 'package:flutter/material.dart';
-import '../models/chamado_model.dart';
-import '../repositories/chamados_repository.dart';
-import '../repositories/auth_repository.dart';
+
+import '../data/models/chamado_model.dart';
+import '../data/repositories/chamados_repository.dart';
+import '../services/location_service.dart';
 
 class ChamadosViewModel extends ChangeNotifier {
-  final ChamadosRepository _chamadosRepository;
-  final AuthRepository _authRepository;
+  final ChamadosRepository repositorio;
+  final LocationService localizacao;
 
   List<ChamadoModel> chamados = [];
+  Map<int, double> distancias = {};
   bool isLoading = false;
+  bool atualizando = false;
+  bool usandoOffline = false;
   String? errorMessage;
 
-  // Recebe os repositórios por injeção de dependência
-  ChamadosViewModel(this._chamadosRepository, this._authRepository);
+  ChamadosViewModel(
+    this.repositorio, {
+    LocationService? localizacao,
+  }) : localizacao = localizacao ?? LocationService();
 
   Future<void> carregarChamados() async {
     isLoading = true;
     errorMessage = null;
-    notifyListeners(); // Avisa a View para mostrar a rodinha de loading
+    notifyListeners();
 
     try {
-      // 1. Recupera o token guardado de forma segura
-      final token = await _authRepository.getToken();
-      
-      if (token == null || token.isEmpty) {
-        errorMessage = 'Sessão inválida. Por favor, faça login novamente.';
-        isLoading = false;
-        notifyListeners();
-        return;
-      }
+      // O SQLite é a primeira fonte, inclusive sem internet.
+      await _mostrar(await repositorio.listarLocais());
+      isLoading = false;
+      atualizando = true;
+      notifyListeners();
 
-      // 2. Pede os dados ao repositório (que fará a gestão API vs SQLite)
-      chamados = await _chamadosRepository.getChamados(token);
-      
-    } catch (e) {
-      errorMessage = 'Erro ao carregar chamados: $e';
+      final atualizados = await repositorio.atualizarDaApi();
+      await _mostrar(atualizados);
+      usandoOffline = false;
+    } catch (erro) {
+      usandoOffline = true;
+      if (chamados.isEmpty) {
+        errorMessage =
+            'Sem rede ou sem chamados salvos. Entre com internet na primeira vez. ($erro)';
+      }
     } finally {
       isLoading = false;
-      notifyListeners(); // Avisa a View para remover o loading e atualizar a lista
+      atualizando = false;
+      notifyListeners();
     }
+  }
+
+  Future<void> _mostrar(List<ChamadoModel> lista) async {
+    final posicao = await localizacao.obterLocalizacao();
+    distancias = {};
+    if (posicao != null) {
+      for (final chamado in lista) {
+        distancias[chamado.id] = LocationService.distanciaKm(
+          posicao,
+          Coordenada(chamado.latitude, chamado.longitude),
+        );
+      }
+      lista.sort((a, b) =>
+          (distancias[a.id] ?? double.infinity)
+              .compareTo(distancias[b.id] ?? double.infinity));
+    }
+    chamados = lista;
+    notifyListeners();
   }
 }
