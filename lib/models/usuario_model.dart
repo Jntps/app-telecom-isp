@@ -1,45 +1,37 @@
 class UsuarioModel {
   final int? id;
   final String email;
+  final String nome;
   final String? token;
 
-  UsuarioModel({
+  const UsuarioModel({
     this.id,
     required this.email,
+    this.nome = '',
     this.token,
   });
 
-  // Comunicação com a API REST
   factory UsuarioModel.fromJson(Map<String, dynamic> json) {
+    final dados = json['dados'] is Map ? json['dados'] as Map : json;
+    final usuario = dados['usuario'] is Map ? dados['usuario'] as Map : dados;
     return UsuarioModel(
-      id: json['id'],
-      email: json['email'] ?? '',
-      token: json['token'],
+      id: int.tryParse((usuario['id'] ?? '').toString()),
+      email: (usuario['email'] ?? '').toString(),
+      nome: (usuario['nome'] ?? '').toString(),
+      token: dados['token']?.toString(),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'email': email,
-      'token': token,
-    };
-  }
+  Map<String, dynamic> toJson() =>
+      {'id': id, 'email': email, 'nome': nome, 'token': token};
 
-  // Persistência local SQLite
-  factory UsuarioModel.fromMap(Map<String, dynamic> map) {
-    return UsuarioModel(
-      id: map['id'],
-      email: map['email'] ?? '',
-      token: map['token'],
-    );
-  }
+  factory UsuarioModel.fromMap(Map<String, dynamic> map) => UsuarioModel(
+        id: map['id'] as int?,
+        email: (map['email'] ?? '').toString(),
+        nome: (map['nome'] ?? '').toString(),
+        token: map['token']?.toString(),
+      );
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'email': email,
-      'token': token,
-    };
-  }
+  Map<String, dynamic> toMap() =>
+      {'id': id, 'email': email, 'nome': nome, 'token': token};
 }

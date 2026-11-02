@@ -1,40 +1,21 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../models/usuario_model.dart';
+import '../datasources/remote_datasource.dart';
+import '../datasources/token_store.dart';
 
 class AuthRepository {
-  final String baseUrl = 'https://oquetemnomeucosmetico.com.br/api';
-  final _storage = const FlutterSecureStorage();
+  final RemoteDatasource remoto;
+  final TokenStore tokens;
 
-  Future<UsuarioModel> login(String email, String hashedSenha) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/login'),
-      headers: {'Content-Type': 'application/json'},
-      // O backend espera receber o email e a senha já encriptada
-      body: jsonEncode({'email': email, 'senha': hashedSenha}),
-    );
+  AuthRepository({RemoteDatasource? remoto, TokenStore? tokens})
+      : remoto = remoto ?? RemoteDatasource(),
+        tokens = tokens ?? const SecureTokenStore();
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final usuario = UsuarioModel.fromJson(data);
-      
-      // Persiste o token de forma segura (RF04)
-      if (usuario.token != null) {
-        await _storage.write(key: 'auth_token', value: usuario.token);
-      }
-      return usuario;
-    } else {
-      throw Exception('Falha na autenticação. Verifique as credenciais.');
-    }
+  // A ViewModel calcula HMAC-SHA256 antes desta chamada.
+  Future<bool> login(String email, String senhaHmac) async {
+    final resultado = await remoto.login(email, senhaHmac);
+    await tokens.salvar(resultado.token);
+    return true;
   }
 
-  // Utilizado pelo Splash Screen (RF02) para verificar auto-login
-  Future<String?> getToken() async {
-    return await _storage.read(key: 'auth_token');
-  }
-
-  Future<void> logout() async {
-    await _storage.delete(key: 'auth_token');
-  }
+  Future<String?> getToken() => tokens.ler();
+  Future<void> logout() => tokens.apagar();
 }

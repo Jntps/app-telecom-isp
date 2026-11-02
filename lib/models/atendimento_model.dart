@@ -5,60 +5,58 @@ class AtendimentoModel {
   final String descricao;
   final String dataConclusao;
   final String? fotoPath;
+  final String? fotoUrl;
   final int sincronizado;
 
-  AtendimentoModel({
+  const AtendimentoModel({
     this.id,
     required this.chamadoId,
     required this.categoria,
     required this.descricao,
     required this.dataConclusao,
     this.fotoPath,
+    this.fotoUrl,
     this.sincronizado = 0,
   });
 
-  factory AtendimentoModel.fromJson(Map<String, dynamic> json) {
-    return AtendimentoModel(
-      id: json['id'],
-      chamadoId: json['chamadoId'],
-      categoria: json['categoria'] ?? '',
-      descricao: json['descricao'] ?? '',
-      dataConclusao: json['dataConclusao'] ?? '',
-      sincronizado: 1, // Se veio da API, já está sincronizado
-    );
-  }
+  factory AtendimentoModel.fromJson(Map<String, dynamic> json) =>
+      AtendimentoModel(
+        id: int.tryParse((json['atendimento_id'] ?? json['id']).toString()),
+        chamadoId: int.parse((json['chamado_id'] ?? json['chamadoId']).toString()),
+        categoria: (json['categoria_tecnico'] ?? '').toString(),
+        descricao: (json['descricao_procedimento'] ?? '').toString(),
+        dataConclusao: (json['data_resolucao'] ?? '').toString(),
+        fotoUrl: json['foto_url']?.toString(),
+        sincronizado: 1,
+      );
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'chamadoId': chamadoId,
-      'categoria': categoria,
-      'descricao': descricao,
-      'dataConclusao': dataConclusao,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'chamado_id': chamadoId,
+        'categoria_tecnico': categoria,
+        'descricao_procedimento': descricao,
+        'data_resolucao': dataConclusao,
+      };
 
-  factory AtendimentoModel.fromMap(Map<String, dynamic> map) {
-    return AtendimentoModel(
-      id: map['id'],
-      chamadoId: map['chamadoId'],
-      categoria: map['categoria'],
-      descricao: map['descricao'],
-      dataConclusao: map['dataConclusao'],
-      fotoPath: map['fotoPath'],
-      sincronizado: map['sincronizado'],
-    );
-  }
+  factory AtendimentoModel.fromMap(Map<String, dynamic> map) =>
+      AtendimentoModel(
+        id: map['id'] as int?,
+        chamadoId: map['chamadoId'] as int,
+        categoria: map['categoria'] as String,
+        descricao: map['descricao'] as String,
+        dataConclusao: map['dataConclusao'] as String,
+        fotoPath: map['fotoPath'] as String?,
+        fotoUrl: map['fotoUrl'] as String?,
+        sincronizado: map['sincronizado'] as int? ?? 0,
+      );
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'chamadoId': chamadoId,
-      'categoria': categoria,
-      'descricao': descricao,
-      'dataConclusao': dataConclusao,
-      'fotoPath': fotoPath,
-      'sincronizado': sincronizado,
-    };
-  }
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'chamadoId': chamadoId,
+        'categoria': categoria,
+        'descricao': descricao,
+        'dataConclusao': dataConclusao,
+        'fotoPath': fotoPath,
+        'fotoUrl': fotoUrl,
+        'sincronizado': sincronizado,
+      };
 }

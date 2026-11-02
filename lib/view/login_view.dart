@@ -31,7 +31,7 @@ class _LoginViewState extends State<LoginView> {
       // Chama a ViewModel para assinar e enviar os dados
       final sucesso = await authViewModel.fazerLogin(
         _emailController.text.trim(),
-        _passwordController.text.trim(),
+        _passwordController.text,
       );
 
       if (sucesso) {
@@ -72,7 +72,7 @@ class _LoginViewState extends State<LoginView> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Logótipo / Ícone da App
-                    const Icon(Icons.cell_tower, size: 64, color: Colors.blueAccent),
+                    Image.asset('assets/images/logo.png', width:74, height:74),
                     const SizedBox(height: 16),
                     const Text(
                       'Telecom ISP',

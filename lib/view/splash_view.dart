@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../repositories/auth_repository.dart';
+import '../data/repositories/auth_repository.dart';
 
 class SplashView extends StatefulWidget {
   const SplashView({Key? key}) : super(key: key);
@@ -37,10 +37,10 @@ class _SplashViewState extends State<SplashView> {
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.cell_tower, size: 80, color: Colors.white),
-            SizedBox(height: 16),
-            Text(
+          children: [
+            Image.asset('assets/images/logo.png', width:100, height:100),
+            const SizedBox(height: 16),
+            const Text(
               'Telecom ISP',
               style: TextStyle(
                 fontSize: 28,
@@ -48,8 +48,8 @@ class _SplashViewState extends State<SplashView> {
                 color: Colors.white,
               ),
             ),
-            SizedBox(height: 32),
-            CircularProgressIndicator(color: Colors.white),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(color: Colors.white),
           ],
         ),
       ),

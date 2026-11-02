@@ -1,54 +1,30 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../datasources/local_datasource.dart';
+import '../datasources/remote_datasource.dart';
 import '../models/chamado_model.dart';
-import '../datasources/database_helper.dart';
+import 'auth_repository.dart';
 
 class ChamadosRepository {
-  final String baseUrl = 'https://oquetemnomeucosmetico.com.br/api';
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final LocalDatasource local;
+  final RemoteDatasource remoto;
+  final AuthRepository autenticacao;
 
-  // Busca os chamados e aplica a lógica Offline-First
-  Future<List<ChamadoModel>> getChamados(String token) async {
-    try {
-      // 1. Tenta buscar os dados mais recentes da API
-      final response = await http.get(
-        Uri.parse('$baseUrl/chamados'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', 
-        },
-      ).timeout(const Duration(seconds: 10)); // Timeout para não ficar preso sem rede
+  ChamadosRepository({
+    LocalDatasource? local,
+    RemoteDatasource? remoto,
+    AuthRepository? autenticacao,
+  })  : local = local ?? LocalDatasource(),
+        remoto = remoto ?? RemoteDatasource(),
+        autenticacao = autenticacao ?? AuthRepository();
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        List<ChamadoModel> chamadosApi = data.map((json) => ChamadoModel.fromJson(json)).toList();
+  Future<List<ChamadoModel>> listarLocais() => local.listarAbertos();
 
-        // 2. Se a API respondeu com sucesso, atualiza o cache local no SQLite
-        final db = await _dbHelper.database;
-        await db.delete('chamados'); // Limpa a tabela antiga
-        
-        for (var chamado in chamadosApi) {
-          await db.insert('chamados', chamado.toMap());
-        }
-
-        return chamadosApi;
-      } else {
-        // 3. Se a API retornar erro (ex: servidor em baixo), tenta carregar do banco local
-        return await _getChamadosLocais();
-      }
-    } catch (e) {
-      // 4. Se não houver internet (exceção de rede ou timeout), carrega do SQLite
-      return await _getChamadosLocais();
+  Future<List<ChamadoModel>> atualizarDaApi() async {
+    final token = await autenticacao.getToken();
+    if (token == null || token.isEmpty) {
+      throw StateError('Faça login para carregar os chamados.');
     }
-  }
-
-  // Método auxiliar privado para ler do SQLite
-  Future<List<ChamadoModel>> _getChamadosLocais() async {
-    final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('chamados');
-    
-    return List.generate(maps.length, (i) {
-      return ChamadoModel.fromMap(maps[i]);
-    });
+    final chamados = await remoto.listarChamados(token);
+    await local.salvarChamados(chamados);
+    return local.listarAbertos();
   }
 }

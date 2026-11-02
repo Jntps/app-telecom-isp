@@ -1,40 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:projeto_telecom/view/detalhes_view.dart';
 
-// Imports de Autenticação
-import 'repositories/auth_repository.dart';
+import 'data/datasources/local_datasource.dart';
+import 'data/datasources/remote_datasource.dart';
+import 'data/datasources/token_store.dart';
+import 'data/repositories/auth_repository.dart';
+import 'data/repositories/chamados_repository.dart';
+import 'data/repositories/atendimentos_repository.dart';
 import 'viewModel/auth_viewmodel.dart';
-
-// Imports de Chamados
-import 'repositories/chamados_repository.dart';
 import 'viewModel/chamados_viewmodel.dart';
-
-// Imports das Views
+import 'viewModel/atendimento_viewmodel.dart';
+import 'viewModel/historico_viewmodel.dart';
 import 'view/splash_view.dart';
 import 'view/login_view.dart';
 import 'view/home_view.dart';
+import 'view/atendimento_view.dart';
+import 'view/historico_view.dart';
 
 void main() {
-  runApp(
-    MultiProvider(
-      providers: [
-        // Provider de Autenticação
-        ChangeNotifierProvider(
-          create: (_) => AuthViewModel(AuthRepository()),
-        ),
-        // Novo Provider de Chamados (Injetado aqui)
-        ChangeNotifierProvider(
-          create: (_) => ChamadosViewModel(ChamadosRepository(), AuthRepository()),
-        ),
-      ],
-      child: const MyApp(),
-    ),
+  WidgetsFlutterBinding.ensureInitialized();
+  final remoto = RemoteDatasource();
+  final local = LocalDatasource();
+  final autenticacao = AuthRepository(
+    remoto: remoto,
+    tokens: const SecureTokenStore(),
   );
+  final chamados = ChamadosRepository(
+    local: local,
+    remoto: remoto,
+    autenticacao: autenticacao,
+  );
+  final atendimentos = AtendimentosRepository(
+    local: local,
+    remoto: remoto,
+    autenticacao: autenticacao,
+  );
+
+  runApp(MultiProvider(
+    providers: [
+      Provider<AuthRepository>.value(value: autenticacao),
+      Provider<ChamadosRepository>.value(value: chamados),
+      Provider<AtendimentosRepository>.value(value: atendimentos),
+      ChangeNotifierProvider(create: (_) => AuthViewModel(autenticacao)),
+      ChangeNotifierProvider(create: (_) => ChamadosViewModel(chamados)),
+      ChangeNotifierProvider(create: (_) => AtendimentoViewModel(atendimentos)),
+      ChangeNotifierProvider(create: (_) => HistoricoViewModel(atendimentos)),
+    ],
+    child: const MyApp(),
+  ));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -42,15 +59,17 @@ class MyApp extends StatelessWidget {
       title: 'Telecom ISP',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: false,
+        colorSchemeSeed: Colors.blue,
+        useMaterial3: true,
       ),
-      initialRoute: '/splash', // Arranca sempre pela verificação de sessão
+      initialRoute: '/splash',
       routes: {
-        '/splash': (context) => const SplashView(),
-        '/login': (context) => const LoginView(),
-        '/home': (context) => const HomeView(),
-        '/detalhes': (context) => const DetalhesView(), // <-- ADICIONA ESTA LINHA
+        '/splash': (_) => const SplashView(),
+        '/login': (_) => const LoginView(),
+        '/home': (_) => const HomeView(),
+        '/atendimento': (_) => const AtendimentoView(),
+        '/historico': (_) => const HistoricoView(),
+        '/detalhes': (_) => const AtendimentoView(),
       },
     );
   }
